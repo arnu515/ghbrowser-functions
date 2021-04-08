@@ -12,7 +12,7 @@ class DataModel(pydantic.BaseModel):
     branch: typing.Optional[str] = "master"
 
 @app.get("/clone")
-def download_gh_repo(repo: str = fastapi.Query(...), branch: Optional[str] = fastapi.Query("master"), x_gh_token: typing.Optional[str] = fastapi.Header(None)):
+def download_gh_repo(repo: str = fastapi.Query(...), branch: typing.Optional[str] = fastapi.Query("master"), x_gh_token: typing.Optional[str] = fastapi.Header(None)):
     file_path = dl_github_repo(repo, x_gh_token or None, branch)
     if file_path is None:
         raise fastapi.exceptions.HTTPException(404, "Repo not found")
