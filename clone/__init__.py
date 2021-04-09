@@ -12,19 +12,19 @@ class DataModel(pydantic.BaseModel):
     repo: str
     branch: typing.Optional[str] = "master"
 
-async def extract_github_repo_background_task(file_path: str, folder_path: str, post_url: typing.Optional[str], io_url: typing.Optional[str] = None, repo: typing.Optional[str] = None):
+async def extract_github_repo_background_task(data, file_path: str, folder_path: str, post_url: typing.Optional[str], io_url: typing.Optional[str] = None):
     async for i in extract_github_repo(file_path, folder_path):
         print(i)
         if i.get("main"):
             continue
         if post_url:
             if i.get("is_folder"):
-                requests.post(post_url, {"repo": repo, **i, "path": None})
+                requests.post(post_url, {**data.dict(), **i, "path": None})
             else:
                 with open(i["path"], "rb") as f:
                     print("Posting to", post_url)
-                    print("Sending data:", {"repo": repo, **i, "path": None})
-                    requests.post(post_url, {"repo": repo, **i, "path": None}, files={"file": f})
+                    print("Sending data:", {**data.dict(), **i, "path": None})
+                    requests.post(post_url, {**data.dict(), **i, "path": None}, files={"file": f})
                     print("Sent data")
 
 @app.get("/clone")
@@ -39,9 +39,9 @@ def download_gh_repo(tasks: fastapi.BackgroundTasks, post_url: typing.Optional[s
     file_path, folder_path = dl_github_repo(data.repo, x_gh_token or None, data.branch)
     if file_path is None:
         raise fastapi.exceptions.HTTPException(404, "Repo not found")
-    tasks.add_task(extract_github_repo_background_task, file_path, folder_path, post_url, io_url, data.repo)
+    tasks.add_task(extract_github_repo_background_task, data, file_path, folder_path, post_url, io_url)
 
-    return fastapi.responses.FileResponse(file_path) if tar is not None else "Cloned"
+    return fastapi.responses.FileResponse(file_path) if tar is not None else data.repo
 
 
 def dl_github_repo(repo: str, token: typing.Optional[str] = None, branch="master"):
