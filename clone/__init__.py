@@ -19,12 +19,12 @@ async def extract_github_repo_background_task(file_path: str, folder_path: str, 
             continue
         if post_url:
             if i.get("is_folder"):
-                requests.post(post_url, {"repo": repo, **i, "path": None}, headers={"Content-Type": "multipart/formdata"})
+                requests.post(post_url, {"repo": repo, **i, "path": None})
             else:
                 with open(i["path"], "rb") as f:
                     print("Posting to", post_url)
                     print("Sending data:", {"repo": repo, **i, "path": None})
-                    requests.post(post_url, {"repo": repo, **i, "path": None}, files={"file": f}, headers={"Content-Type": "multipart/formdata"})
+                    requests.post(post_url, {"repo": repo, **i, "path": None}, files={"file": f})
                     print("Sent data")
 
 @app.get("/clone")
