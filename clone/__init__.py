@@ -12,9 +12,20 @@ class DataModel(pydantic.BaseModel):
     repo: str
     branch: typing.Optional[str] = "master"
 
-async def extract_github_repo_background_task(file_path: str, folder_path: str):
+async def extract_github_repo_background_task(file_path: str, folder_path: str, post_url: typing.Optional[str], io_url: typing.Optional[str] = None, repo: typing.Optional[str] = None):
     async for i in extract_github_repo(file_path, folder_path):
         print(i)
+        if i.get("main"):
+            continue
+        if post_url:
+            if i.get("is_folder"):
+                requests.post(post_url, {"repo": repo, **i, "path": None}, headers={"Content-Type": "multipart/formdata"})
+            else:
+                with open(i["path"], "rb") as f:
+                    print("Posting to", post_url)
+                    print("Sending data:", {"repo": repo, **i, "path": None})
+                    requests.post(post_url, {"repo": repo, **i, "path": None}, files={"file": f}, headers={"Content-Type": "multipart/formdata"})
+                    print("Sent data")
 
 @app.get("/clone")
 def download_gh_repo(repo: str = fastapi.Query(...), branch: typing.Optional[str] = fastapi.Query("master"), x_gh_token: typing.Optional[str] = fastapi.Header(None)):
@@ -24,12 +35,11 @@ def download_gh_repo(repo: str = fastapi.Query(...), branch: typing.Optional[str
     return fastapi.responses.FileResponse(file_path)
 
 @app.post("/clone")
-def download_gh_repo(tasks: fastapi.BackgroundTasks, tar: typing.Optional[str] = fastapi.Query(None), data: DataModel = fastapi.Body(...), x_gh_token: typing.Optional[str] = fastapi.Header(None)):
+def download_gh_repo(tasks: fastapi.BackgroundTasks, post_url: typing.Optional[str] = fastapi.Query(None), io_url: typing.Optional[str] = fastapi.Query(None), tar: typing.Optional[str] = fastapi.Query(None), data: DataModel = fastapi.Body(...), x_gh_token: typing.Optional[str] = fastapi.Header(None)):
     file_path, folder_path = dl_github_repo(data.repo, x_gh_token or None, data.branch)
-    print(file_path, folder_path)
     if file_path is None:
         raise fastapi.exceptions.HTTPException(404, "Repo not found")
-    tasks.add_task(extract_github_repo_background_task, file_path, folder_path)
+    tasks.add_task(extract_github_repo_background_task, file_path, folder_path, post_url, io_url, data.repo)
 
     return fastapi.responses.FileResponse(file_path) if tar is not None else "Cloned"
 
@@ -55,15 +65,13 @@ def dl_github_repo(repo: str, token: typing.Optional[str] = None, branch="master
     if not os.path.exists(os.path.join(basepath, "repos", folder)):
         os.mkdir(os.path.join(basepath, "repos", folder))
     with open(path, "wb") as f:
-        print("p", path)
         f.write(res.content)
     return path, os.path.join(basepath, "repos", folder)
 
 async def extract_github_repo(path: str, folder_path: str):
     contents = subprocess.Popen("cd " + folder_path + " && tar -xvzf " + path, shell=True, stdout=subprocess.PIPE).communicate()[0].decode().split("\n")[0:-1]
-    print(type(contents))
     folder = contents.pop(0)[0:-1] # gets the first item, removes it from the list, and removes the trailing slash.
     yield {"name":folder, "is_folder": True, "main": True}
     for i in contents:
         is_folder = i.endswith("/")
-        yield {"name": i, "is_folder": is_folder}
+        yield {"name": i, "is_folder": is_folder, "path": os.path.join(folder_path, i)}
