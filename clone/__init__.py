@@ -14,7 +14,6 @@ class DataModel(pydantic.BaseModel):
 
 async def extract_github_repo_background_task(data, file_path: str, folder_path: str, post_url: typing.Optional[str], io_url: typing.Optional[str] = None):
     async for i in extract_github_repo(file_path, folder_path):
-        print(i)
         if i.get("main"):
             continue
         if post_url:
@@ -22,10 +21,7 @@ async def extract_github_repo_background_task(data, file_path: str, folder_path:
                 requests.post(post_url, {**data.dict(), **i, "path": None})
             else:
                 with open(i["path"], "rb") as f:
-                    print("Posting to", post_url)
-                    print("Sending data:", {**data.dict(), **i, "path": None})
                     requests.post(post_url, {**data.dict(), **i, "path": None}, files={"file": f})
-                    print("Sent data")
 
 @app.get("/clone")
 def download_gh_repo(repo: str = fastapi.Query(...), branch: typing.Optional[str] = fastapi.Query("master"), x_gh_token: typing.Optional[str] = fastapi.Header(None)):
