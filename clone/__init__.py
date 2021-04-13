@@ -11,6 +11,7 @@ app = fastapi.APIRouter()
 class DataModel(pydantic.BaseModel):
     repo: str
     branch: typing.Optional[str] = "master"
+    sid: typing.Optional[str] = None
 
 async def extract_github_repo_background_task(data, file_path: str, folder_path: str, post_url: typing.Optional[str], io_url: typing.Optional[str] = None):
     async for i in extract_github_repo(file_path, folder_path):
