@@ -15,11 +15,14 @@ class DataModel(pydantic.BaseModel):
 
 async def extract_github_repo_background_task(data, file_path: str, folder_path: str, branch: str, post_url: typing.Optional[str], io_url: typing.Optional[str] = None):
     async for i in extract_github_repo(file_path, folder_path, branch):
+        if i == "done":
+            requests.post(post_url, json={**data.dict(), "done": True})
+            break
         if i.get("main"):
             continue
         if post_url:
             if i.get("is_folder"):
-                requests.post(post_url, {**data.dict(), **i, "path": None})
+                requests.post(post_url, json={**data.dict(), **i, "path": None})
             else:
                 with open(i["path"], "rb") as f:
                     requests.post(post_url, {**data.dict(), **i, "path": None}, files={"file": f})
@@ -72,3 +75,4 @@ async def extract_github_repo(path: str, folder_path: str, branch: str):
         yield {"name": folder, "is_folder": True, "path": parent}
         for file in files:
             yield {"name": os.path.join(folder, file), "is_folder": False, "path": os.path.join(folder_path, folder.replace("/", "", 1), file)}
+    yield "done"
