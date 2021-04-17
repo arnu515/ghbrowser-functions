@@ -5,6 +5,7 @@ import requests
 import typing
 import uvicorn
 import os
+import mimetypes
 
 app = fastapi.APIRouter()
 
@@ -74,5 +75,5 @@ async def extract_github_repo(path: str, folder_path: str, branch: str):
         folder = parent.replace(folder_path, "", 1)
         yield {"name": folder, "is_folder": True, "path": parent}
         for file in files:
-            yield {"name": os.path.join(folder, file), "is_folder": False, "path": os.path.join(folder_path, folder.replace("/", "", 1), file)}
+            yield {"name": os.path.join(folder, file), "is_folder": False, "path": os.path.join(folder_path, folder.replace("/", "", 1), file), "guessed_mimetype": list(mimetypes.guess_type(file))}
     yield "done"
